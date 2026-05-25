@@ -16,8 +16,8 @@ def test_run():
     }
     
     analyzed_words = analyzer.analyze_keywords(mock_scraped_data)
-    
     today_str = datetime.now().strftime("%Y-%m-%d")
+    
     payload = CrawlResult(
         crawled_date=today_str,
         words=analyzed_words
