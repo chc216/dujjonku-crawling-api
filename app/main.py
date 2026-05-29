@@ -3,9 +3,11 @@ import requests
 from datetime import datetime
 from app.schemas.dto import CrawlResult
 from app.services.analyzer import WordAnalyzer
+from app.services.crawler import CommunityCrawler
 
 app = FastAPI(title="Trendy Word Crawling")
 analyzer = WordAnalyzer()
+crawler = CommunityCrawler()
 
 SPRING_BOOT_URL = ""
 
@@ -28,3 +30,14 @@ def test_run():
         return {"status": "success", "spring_response_code": response.status_code, "sent_data": payload}
     except requests.exceptions.ConnectionError:
         return {"status": "local_success", "message": "스프링 서버가 꺼져있어 전송 생략", "sent_data": payload}
+    
+@app.get("/test-crawl")
+def test_crawl(keyword: str = "두쫀쿠"):
+    tweets = crawler.collect_x_tweets(keyword=keyword, max_items=100)
+    
+    return {
+        "status": "success",
+        "search_keyword": keyword,
+        "scraped_count": len(tweets),
+        "results": tweets
+    }
