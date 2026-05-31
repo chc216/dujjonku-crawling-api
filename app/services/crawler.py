@@ -2,6 +2,9 @@ import requests
 import os
 from dotenv import load_dotenv
 
+# .env 파일 읽어오기
+load_dotenv()
+
 class CommunityCrawler:
     def __init__(self):
         # 내가 apify 회원가입해서 받은 토큰임 (개인 API 토큰)
@@ -14,7 +17,7 @@ class CommunityCrawler:
         # apify에서 actor로 제공받은 Scrapper 봇의 주소 (추가하려면 밑에 더 추가 가능 but, 함수는 주소마다 생성해야함)
         self.x_bot_url = f"https://api.apify.com/v2/acts/altimis~scweet/run-sync-get-dataset-items?token={self.api_token}"
         
-    async def collect_x_tweets(self, keyword: str, max_items: int=100) -> list:        
+    def collect_x_tweets(self, keyword: str, max_items: int=100) -> list:        
         # 봇에게 요청할 입력값
         payload = {
             "lang": "ko",
@@ -26,7 +29,7 @@ class CommunityCrawler:
         }
         
         # 웹페이지 요청(POST)
-        response = await requests.post(self.x_bot_url, json=payload)
+        response = requests.post(self.x_bot_url, json=payload)
         
         # 결과 담을 리스트
         scraped_texts = []

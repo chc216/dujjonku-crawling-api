@@ -1,0 +1,8 @@
+설치된 패키지 목록
+
+fastapi
+uvicorn
+requests
+python-dotenv
+soynlp
+pydantic
