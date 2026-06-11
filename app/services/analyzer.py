@@ -6,7 +6,7 @@ from app.schemas.dto import WordDetail
 class WordAnalyzer:
     def __init__(self):
         # 불용어 리스트 : 더 넣을거 있으면 노션에 추가하기
-        self.stopwords = ["아니", "진짜", "오늘", "오키", "사랑", "요즘", "너무", "그냥", "ㅋㅋ", "ㅎㅎ", "ㅠㅠ", "이거", "내가", "있는", "하는", "근데", "이런", "저런"]
+        self.stopwords = ["아니", "진짜", "오늘", "오키", "사랑", "요즘", "너무", "그냥", "ㅋㅋ", "ㅎㅎ", "ㅠㅠ", "이거", "내가", "있는", "하는", "근데", "이런", "저런", "htt", "ht", "http", "https"]
     
     def clean_text(self, text: str) -> str:
         text = re.sub(r'[^가-힣a-zA-Z0-9\s]', '', text)
