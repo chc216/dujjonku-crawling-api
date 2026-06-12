@@ -17,25 +17,19 @@ def run_pipeline():
     target_keyword = "유행어"
     
     # 나중에 keyword(수집을 위해 검색할 데이터)를 추가해야 할 듯. (크롤러 두 번 호출)
-    tweets = crawler.collect_x_tweets(keyword=target_keyword, max_items=5)
-    naver_blogs = crawler.collect_naver_blog(keyword=target_keyword, max_items=5)
+    tweets = crawler.collect_x_tweets(keyword=target_keyword, max_items=3000)
+    naver_blogs = crawler.collect_naver_blog(keyword=target_keyword, max_items=3000)
     
     if not tweets and not naver_blogs:
         return {"status" : "error", "message" : "크롤링된 데이터 없음"}
     
-    # analyzer.py에 전달할 구조
+    # analyzer.py에 전달할 구조 (데이터 두 개 묶어서 전달)
     raw_data_by_platform = {
         "twitter" : tweets,
         "naver_blog" : naver_blogs
     }
         
     analyzed_words = analyzer.analyze_keywords(raw_data_by_platform)
-    '''today_str = datetime.now().strftime("%Y-%m-%d")
-    
-    payload = CrawlResult(
-        crawled_date=today_str,
-        words=analyzed_words
-    )'''
     
     # 스프링에게 전달할 구조
     spring_payload = []
