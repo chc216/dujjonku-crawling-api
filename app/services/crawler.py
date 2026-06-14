@@ -1,6 +1,8 @@
 import requests
 import os
+import time
 from dotenv import load_dotenv
+from datetime import datetime, timedelta
 
 # .env 파일 읽어오기
 load_dotenv()
@@ -15,34 +17,75 @@ class CommunityCrawler:
             print("APIFY_TOKEN 찾을 수 없음. .env 파일 확인 바람")
         
         # apify에서 actor로 제공받은 Scrapper 봇의 주소 (추가하려면 밑에 더 추가 가능 but, 함수는 주소마다 생성해야함)
-        self.x_bot_url = f"https://api.apify.com/v2/actors/kaitoeasyapi~twitter-x-data-tweet-scraper-pay-per-result-cheapest/run-sync-get-dataset-items?token={self.api_token}"
-        
+        self.x_bot_url = f"https://api.apify.com/v2/acts/kaitoeasyapi~twitter-x-data-tweet-scraper-pay-per-result-cheapest/runs?token={self.api_token}"
         self.naver_bot_url = f"https://api.apify.com/v2/actors/oxygenated_quagmire~naver-blog-search/run-sync-get-dataset-items?token={self.api_token}"
         
     def collect_x_tweets(self, keyword: str, max_items: int=100) -> list:        
         print(f"[{keyword}] 트윗 {max_items}개 수집 시작...")
         
-        # 해당 봇의 날짜 설정 방법
-        # 끝나는 날짜 설정은
-        # f"{keyword} since: 3030-30-30 until:3030-00-00"
-        #search_query = f"{keyword} since: 2026-06-07"
+        today = datetime.now()
+        start_date = today - timedelta(days=30)
+        
+        str_start = start_date.strftime("%Y-%m-%d")
+        str_end = today.strftime("%Y-%m-%d")
+        
+        search_query = f"{keyword} since:{str_start} until:{str_end}"
         
         # 봇에게 요청할 입력값
         payload = {
-            #"searchTerms": [search_query],
-            "searchTerms": [keyword],
+            "searchTerms": [search_query],
+            #"searchTerms": [keyword],
             "maxItems": max_items,
             "sort": "Latest",
             "tweetLanguage": "ko"
         }
         
         # 웹페이지 요청(POST)
-        response = requests.post(self.x_bot_url, json=payload)
+        run_response = requests.post(self.x_bot_url, json=payload)
         
+        if run_response.status_code not in [200,201]:
+            print(f"error: Apify 작업 지시 실패. {run_response.text}")
+            return []
+    
+        run_data = run_response.json()['data']
+        run_id = run_data['id']
+        dataset_id = run_data['defaultDatasetId']
+        
+        print(f"Apify 작업 시작 (Run ID : {run_id})")
+        
+        status_url = f"https://api.apify.com/v2/actor-runs/{run_id}?token={self.api_token}"
+        
+        while True:
+            status_response = requests.get(status_url).json()['data']
+            current_status = status_response['status']
+            
+            if current_status == 'SUCCEEDED':
+                print("데이터 수집 완료. 데이터 다운로드")
+                break
+            elif current_status in ['FAILED', 'ABORTED', 'TIMING-OUT']:
+                print(f"봇 작업 실패 또는 강제 종료됨 : {current_status}")
+                return []
+            
+            time.sleep(10)
+            
+        dataset_url = f"https://api.apify.com/v2/datasets/{dataset_id}/items?token={self.api_token}"
+        dataset_response = requests.get(dataset_url)
+        dataset_items = dataset_response.json()
+            
         # 결과 담을 리스트
         scraped_texts = []
+        for item in dataset_items:
+            # x에서 데이터를 제공하는 방식 "text"
+            text = item.get("text") or item.get("full_text", "")
+            
+            if text:
+                clean_text = text.replace('\n', ' ').strip()
+                scraped_texts.append(clean_text)    
+                        
+        print(f"트위터에서 텍스트 가져오기 성공. 가져온 텍스트 개수: {len(scraped_texts)}")
+        return scraped_texts
 
-        if response.status_code in [200,201]:
+        '''if run_response.status_code in [200,201]:
             # 봇에게 요청한 데이터 돌려받기
             dataset_items = response.json()
             
@@ -63,7 +106,7 @@ class CommunityCrawler:
             
         else:
             print(f"error: Apify 요청 실패. {response.status_code} - {response.text}")
-            return []
+            return []'''
         
     def collect_naver_blog(self, keyword: str, max_items: int=100) -> list:
         print(f"[{keyword}] 네이버 블로그 {max_items}개 수집 시작...")

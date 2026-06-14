@@ -14,33 +14,39 @@ SPRING_BOOT_URL = "http://localhost:8080/crawling"
 # 전체 파이프라인을 돌리는 API
 @app.get("/run-pipeline")
 def run_pipeline():
-    target_keyword = "유행어"
+    target_keyword = "신조어"
     
     # 나중에 keyword(수집을 위해 검색할 데이터)를 추가해야 할 듯. (크롤러 두 번 호출)
-    tweets = crawler.collect_x_tweets(keyword=target_keyword, max_items=3000)
-    naver_blogs = crawler.collect_naver_blog(keyword=target_keyword, max_items=3000)
+    tweets = crawler.collect_x_tweets(keyword=target_keyword, max_items=300)
+    #naver_blogs = crawler.collect_naver_blog(keyword=target_keyword, max_items=3000)
     
-    if not tweets and not naver_blogs:
+    if not tweets:# and not naver_blogs:
         return {"status" : "error", "message" : "크롤링된 데이터 없음"}
     
     # analyzer.py에 전달할 구조 (데이터 두 개 묶어서 전달)
     raw_data_by_platform = {
         "twitter" : tweets,
-        "naver_blog" : naver_blogs
+        #"naver_blog" : naver_blogs
     }
         
     analyzed_words = analyzer.analyze_keywords(raw_data_by_platform)
-    
+    print(f"🚀 [디버깅] 분석기가 찾은 유행어 후보 개수: {len(analyzed_words)}개")
+    #
     # 스프링에게 전달할 구조
     spring_payload = []
     for word_data in analyzed_words:
         # 빈 배열이 중간에 섞여서 스프링 서버가 400을 뱉어냄 -> 빈배열 버리기
         if word_data.platform_frequencies and word_data.original_examples:
+            
+            # 예시 문장 중 첫 번째 예시 문장만 가져와서 최대 200자까지만 자르기 (데이터 양 너무 많아서 DB에 안들어가는 문제)
+            safe_example = word_data.original_examples[0][:200]
+            
             spring_payload.append({
                 "keyword": word_data.keyword,
                 "platformFrequencies": word_data.platform_frequencies,
-                "originalExamples": word_data.original_examples
+                "originalExamples": [safe_example]
             })
+    print(f"🚀 [디버깅] 스프링으로 쏠 최종 데이터 개수: {len(spring_payload)}개")
     
     try:
         # 스프링 서버 URL 넣고 나서 해당 라인 삭제
