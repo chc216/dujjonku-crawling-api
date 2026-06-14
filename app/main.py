@@ -4,6 +4,7 @@ from datetime import datetime
 from app.schemas.dto import CrawlResult
 from app.services.analyzer import WordAnalyzer
 from app.services.crawler import CommunityCrawler
+import time
 
 app = FastAPI(title="Trendy Word Crawling")
 analyzer = WordAnalyzer()
@@ -14,11 +15,11 @@ SPRING_BOOT_URL = "http://localhost:8080/crawling"
 # 전체 파이프라인을 돌리는 API
 @app.get("/run-pipeline")
 def run_pipeline():
-    target_keyword = "신조어"
+    target_keyword = "유행어"
     
     # 나중에 keyword(수집을 위해 검색할 데이터)를 추가해야 할 듯. (크롤러 두 번 호출)
-    tweets = crawler.collect_x_tweets(keyword=target_keyword, max_items=300)
-    #naver_blogs = crawler.collect_naver_blog(keyword=target_keyword, max_items=3000)
+    tweets = crawler.collect_x_tweets(keyword=target_keyword, max_items=200)
+    naver_blogs = crawler.collect_naver_blog(keyword=target_keyword, max_items=200)
     
     if not tweets:# and not naver_blogs:
         return {"status" : "error", "message" : "크롤링된 데이터 없음"}
@@ -26,12 +27,12 @@ def run_pipeline():
     # analyzer.py에 전달할 구조 (데이터 두 개 묶어서 전달)
     raw_data_by_platform = {
         "twitter" : tweets,
-        #"naver_blog" : naver_blogs
+        "naver_blog" : naver_blogs
     }
-        
+    print(f"🚀 [디버깅] 크롤러 봇이 찾은 유행어 후보 개수: {len(tweets)}개")    
     analyzed_words = analyzer.analyze_keywords(raw_data_by_platform)
     print(f"🚀 [디버깅] 분석기가 찾은 유행어 후보 개수: {len(analyzed_words)}개")
-    #
+    
     # 스프링에게 전달할 구조
     spring_payload = []
     for word_data in analyzed_words:
@@ -48,21 +49,35 @@ def run_pipeline():
             })
     print(f"🚀 [디버깅] 스프링으로 쏠 최종 데이터 개수: {len(spring_payload)}개")
     
-    try:
-        # 스프링 서버 URL 넣고 나서 해당 라인 삭제
-        if not SPRING_BOOT_URL:
-            return {"status": "local_success", "message": "스프링 서버 URL 없음. 브라우저에만 출력.", "sent_data": spring_payload}
+    if not SPRING_BOOT_URL:
+        return {"status": "local_success", "message": "스프링 서버 URL 없음. 브라우저에만 출력.", "sent_data": spring_payload}
         
-        response = requests.post(SPRING_BOOT_URL, json=spring_payload)
-        return {
-            "status": "success",
-            "spring_response_code": response.status_code,
-            "sent_data": spring_payload
-        }
+    CHUNK_SIZE = 500
+    total_sent = 0
     
-    except requests.exceptions.ConnectionError:
-        return {"status": "local_success", "message": "스프링 서버가 꺼져있어 전송 생략", "sent_data": spring_payload}
-    
+    for i in range(0, len(spring_payload), CHUNK_SIZE):
+        chunk = spring_payload[i : i + CHUNK_SIZE]
+        
+        try:
+            print(f"[{i+1} ~ {i+len(chunk)}] 번째 데이터 전송 중...")
+            response = requests.post(SPRING_BOOT_URL, json=chunk)
+            print(f"전송 완료. (스프링 응답 코드 : {response.status_code})")
+            total_sent += len(chunk)
+        
+        except requests.exceptions.ConnectionError:
+            print("스프링 서버가 꺼져있어 전송 중단")
+            break
+        
+        if i+CHUNK_SIZE < len(spring_payload):
+            print("제미나이 API 한도 보호 : 60초 대기 중... \n")
+            time.sleep(60)
+            
+    return {
+        "status": "success",
+        "message": f"총 {total_sent}개 데이터 분할 전송 완료",
+        "total_sent": total_sent
+    }
+        
 # 테스트 API (디버깅)
 @app.get("/test-crawl-x")
 def test_crawl_x(keyword: str = "유행어"):

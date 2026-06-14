@@ -44,7 +44,7 @@ class WordAnalyzer:
                 if final_score > 0:
                     analyzed_words[word] = final_score
         
-        top_trendy_words = sorted(analyzed_words.keys(), key=lambda w: analyzed_words[w], reverse=True)[:30]
+        top_trendy_words = sorted(analyzed_words.keys(), key=lambda w: analyzed_words[w], reverse=True)
         
         final_words_list = []
         for word in top_trendy_words:
